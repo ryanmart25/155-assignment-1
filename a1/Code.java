@@ -6,16 +6,69 @@ import com.jogamp.opengl.*;
 import com.jogamp.opengl.awt.GLCanvas;
 import com.jogamp.opengl.util.*;
 
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.List;
 
-public class Code extends JFrame implements GLEventListener {
+public class Code extends JFrame implements GLEventListener, KeyListener {
+  @Override
+  public void keyTyped(KeyEvent e) {
+
+  }
+
+  @Override
+  public void keyPressed(KeyEvent e) {
+    switch (e.getKeyCode()){
+      case KeyEvent.VK_1 -> {
+        System.out.println("'1' was pressed");
+      }
+      case KeyEvent.VK_2 -> {
+        System.out.println("2 was pressed!");
+        currentColor = currentColor.next();
+        color = computeColor(currentColor);
+      }
+      case KeyEvent.VK_3 -> {
+        System.out.println("'3' was pressed");
+      }
+      case KeyEvent.VK_4 -> {
+        System.out.println("'4' was pressed");
+      }
+      case KeyEvent.VK_5 -> {
+        System.out.println("'5' was pressed");
+      }
+      default -> {
+      }
+    }
+  }
+
+  @Override
+  public void keyReleased(KeyEvent e) {
+
+  }
+
   private enum DEBUG { // enum so i can have a bunch of levels to this and extend as needed.
     DEBUG_ON,
     DEBUG_OFF
+  }
+  private enum Direction {
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT
+  }
+  private enum Color {
+    YELLOW,
+    PURPLE,
+    GRADIENT;
+    public Color next(){
+      Color[] values = Color.values();
+      int nextOrdinal = (this.ordinal() + 1) % values.length;
+      return values[nextOrdinal];
+    }
   }
 
   private GLCanvas myCanvas;
@@ -24,19 +77,36 @@ public class Code extends JFrame implements GLEventListener {
   private float x = 0.0f;
   private float inc = 0.01f;
   private long startTime = System.currentTimeMillis();
-
+  Color currentColor = Color.YELLOW;
+  float[] color = new float[]{1.0f, 1.0f, 0.0f, 1.0f};
   public Code() {
     setTitle("Assignment 1 - OpenGL and JOGL");
     setSize(600, 400);
     setLocation(200, 200);
     myCanvas = new GLCanvas();
     myCanvas.addGLEventListener(this);
+    myCanvas.addKeyListener(this);
     this.add(myCanvas);
     this.setVisible(true);
     Animator animator = new Animator(myCanvas);
     animator.start();
   }
-
+  private float[] computeColor(Color c){
+    switch (c){
+      case Color.YELLOW -> {
+        return new float[]{1.0f, 1.0f, 0.0f, 1.0f};
+      }
+      case Color.PURPLE -> {
+        return new float[]{0.5f, 0.0f, 0.5f, 1.0f};
+      }
+      case Color.GRADIENT -> {
+        return new float[]{1.0f, 1.0f, 1.0f, 1.0f};
+      }
+      default -> {
+        return new float[]{0.5f, 0.4f, 0.5f, 1.0f};
+      }
+    }
+  }
   // if (x > 1.0f) inc = -0.01f; // switch to moving the triangle to the left
   // if (x < -1.0f) inc = 0.01f; // switch to moving the triangle to the right
   public void display(GLAutoDrawable drawable) {
@@ -56,6 +126,8 @@ public class Code extends JFrame implements GLEventListener {
     x += inc;// / (System.nanoTime() - startTime); // move the triangle along x axis
     int offsetLoc = gl.glGetUniformLocation(renderingProgram, "offset");
     gl.glProgramUniform1f(renderingProgram, offsetLoc, x); // send value in "x" to "offset"
+    int colorLoc = gl.glGetUniformLocation(renderingProgram, "currentcolor");
+    gl.glProgramUniform4f(renderingProgram, colorLoc, color[0], color[1], color[2], color[3]);
     gl.glDrawArrays(GL_TRIANGLES, 0, 3);
   }
 
@@ -75,8 +147,11 @@ public class Code extends JFrame implements GLEventListener {
   private int createShaderProgram() {
     GL4 gl = (GL4) GLContext.getCurrentGL();
 
-    String[] vshaderSource = readShader("C:\\Users\\timef\\Documents\\Workspaces\\program-2-1\\shaders\\vertex.txt");
-    String[] fshaderSource = readShader("C:\\Users\\timef\\Documents\\Workspaces\\program-2-1\\shaders\\fragment.txt");
+    String[] vshaderSource = readShader("C:\\Users\\timef\\Documents\\Workspaces\\csc155-assignment-1\\shaders\\vertex.glsl");
+    String[] fshaderSource = readShader("C:\\Users\\timef\\Documents\\Workspaces\\csc155-assignment-1\\shaders\\fragment.glsl");
+    if (vshaderSource[0].equals("INVALID") || fshaderSource[0].equals("INVALID")){
+      System.exit(-1);
+    }
     int vShader = gl.glCreateShader(GL_VERTEX_SHADER);
     gl.glShaderSource(vShader, vshaderSource.length, vshaderSource, null, 0); // 3 is the count of lines of source code.
     gl.glCompileShader(vShader);
