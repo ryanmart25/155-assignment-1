@@ -15,6 +15,28 @@ import java.nio.file.Path;
 import java.util.List;
 
 public class Code extends JFrame implements GLEventListener, KeyListener {
+  public static final float SIZEINCREMENT = 0.01f;
+  public static final float ANGLEINCREMENT = 0.01f;
+  private float POSITIONINCREMENT = 0.01f;
+
+  private GLCanvas myCanvas;
+  private int renderingProgram;
+  private int vao[] = new int[1];
+  private long startTime = System.currentTimeMillis();
+  Color currentColor = Color.YELLOW;
+
+  Direction currentDirection = Direction.UP;
+
+
+  // uniform variables
+  int currentDirectionForShader = currentDirection.getDirection();
+
+  boolean moveInCircle = false;
+  float size = 0.0f;
+  private float angle = 0.0f;
+  private float offset = 0.0f;
+  float[] invariantcolor = new float[]{1.0f, 1.0f, 0.0f, 1.0f}; // default color is yellow
+  private boolean useGradient = false;
   @Override
   public void keyTyped(KeyEvent e) {
 
@@ -25,60 +47,40 @@ public class Code extends JFrame implements GLEventListener, KeyListener {
     switch (e.getKeyCode()){
       case KeyEvent.VK_1 -> {
         System.out.println("'1' was pressed");
+        moveInCircle = !moveInCircle;
+        System.out.println(moveInCircle ? " Triangle is moving in a circle" : "Triangle is Not moving in a circle.");
       }
       case KeyEvent.VK_2 -> {
         System.out.println("2 was pressed!");
         currentColor = currentColor.next();
-        color = computeColor(currentColor);
+        invariantcolor = computeColor(currentColor);
+        if (currentColor == Color.GRADIENT)
+          useGradient = true;
+        else
+          useGradient = false;
       }
       case KeyEvent.VK_3 -> {
         System.out.println("'3' was pressed");
+        size += SIZEINCREMENT;
       }
       case KeyEvent.VK_4 -> {
         System.out.println("'4' was pressed");
+        size-= SIZEINCREMENT;
       }
       case KeyEvent.VK_5 -> {
         System.out.println("'5' was pressed");
+        currentDirection = currentDirection.next();
+        currentDirectionForShader = currentDirection.getDirection();
+        System.out.println("Direction is now: " + currentDirection);
       }
       default -> {
       }
     }
   }
-
   @Override
   public void keyReleased(KeyEvent e) {
 
   }
-
-  private enum DEBUG { // enum so i can have a bunch of levels to this and extend as needed.
-    DEBUG_ON,
-    DEBUG_OFF
-  }
-  private enum Direction {
-    UP,
-    DOWN,
-    LEFT,
-    RIGHT
-  }
-  private enum Color {
-    YELLOW,
-    PURPLE,
-    GRADIENT;
-    public Color next(){
-      Color[] values = Color.values();
-      int nextOrdinal = (this.ordinal() + 1) % values.length;
-      return values[nextOrdinal];
-    }
-  }
-
-  private GLCanvas myCanvas;
-  private int renderingProgram;
-  private int vao[] = new int[1];
-  private float x = 0.0f;
-  private float inc = 0.01f;
-  private long startTime = System.currentTimeMillis();
-  Color currentColor = Color.YELLOW;
-  float[] color = new float[]{1.0f, 1.0f, 0.0f, 1.0f};
   public Code() {
     setTitle("Assignment 1 - OpenGL and JOGL");
     setSize(600, 400);
@@ -115,19 +117,34 @@ public class Code extends JFrame implements GLEventListener, KeyListener {
     gl.glClear(GL_COLOR_BUFFER_BIT); // clear the background to black, each time
     gl.glUseProgram(renderingProgram);
     long now = System.currentTimeMillis();
-
-    if (x > 1.0f) {// flip the direction
+    if (angle + 1f > Float.MAX_VALUE) // prevent overflow
+      angle = 0.0f;
+    angle += Math.min((now - startTime), 1.0f) * ANGLEINCREMENT;
+    if (offset > 1.0f) {// flip the direction
       // adjust increment by min of elapsed time or window width
-      inc = Math.min((now - startTime), 1.0f) * -0.01f;
+      POSITIONINCREMENT = Math.min((now - startTime), 1.0f) * -0.01f;
     }
-    if (x < -1.0f)// flip the direction
-      inc = Math.min((now - startTime), 1.0f) * 0.01f;
+    if (offset < -1.0f)// flip the direction
+      POSITIONINCREMENT = Math.min((now - startTime), 1.0f) * 0.01f;
     startTime = now;
-    x += inc;// / (System.nanoTime() - startTime); // move the triangle along x axis
+    offset += POSITIONINCREMENT;// / (System.nanoTime() - startTime); // move the triangle along x axis
     int offsetLoc = gl.glGetUniformLocation(renderingProgram, "offset");
-    gl.glProgramUniform1f(renderingProgram, offsetLoc, x); // send value in "x" to "offset"
-    int colorLoc = gl.glGetUniformLocation(renderingProgram, "currentcolor");
-    gl.glProgramUniform4f(renderingProgram, colorLoc, color[0], color[1], color[2], color[3]);
+    gl.glProgramUniform1f(renderingProgram, offsetLoc, offset); // send value in "x" to "offset"
+
+    int moveInCircleLoc = gl.glGetUniformLocation(renderingProgram, "moveincircle");
+    gl.glProgramUniform1i(renderingProgram, moveInCircleLoc, moveInCircle ? 1 : 0);
+
+    int sizeLoc = gl.glGetUniformLocation(renderingProgram, "sizeIncrement");
+    gl.glProgramUniform1f(renderingProgram, sizeLoc, size);
+
+    int angleLoc = gl.glGetUniformLocation(renderingProgram, "angle");
+    gl.glProgramUniform1f(renderingProgram, angleLoc, angle);
+
+    int colorLoc = gl.glGetUniformLocation(renderingProgram, "invariantColor");
+    gl.glProgramUniform4f(renderingProgram, colorLoc, invariantcolor[0], invariantcolor[1], invariantcolor[2], invariantcolor[3]);
+
+    int useGradientLoc = gl.glGetUniformLocation(renderingProgram, "useGradient");
+    gl.glProgramUniform1i(renderingProgram, useGradientLoc, useGradient ? 1 : 0);
     gl.glDrawArrays(GL_TRIANGLES, 0, 3);
   }
 
