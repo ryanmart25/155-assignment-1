@@ -51,9 +51,10 @@ public class Code extends JFrame implements GLEventListener, KeyListener {
         System.out.println(moveInCircle ? " Triangle is moving in a circle" : "Triangle is Not moving in a circle.");
       }
       case KeyEvent.VK_2 -> {
-        System.out.println("2 was pressed!");
         currentColor = currentColor.next();
         invariantcolor = computeColor(currentColor);
+        System.out.println("Color is now:" + currentColor);
+
         if (currentColor == Color.GRADIENT)
           useGradient = true;
         else
@@ -128,6 +129,7 @@ public class Code extends JFrame implements GLEventListener, KeyListener {
       POSITIONINCREMENT = Math.min((now - startTime), 1.0f) * 0.01f;
     startTime = now;
     offset += POSITIONINCREMENT;// / (System.nanoTime() - startTime); // move the triangle along x axis
+    // update uniforms
     int offsetLoc = gl.glGetUniformLocation(renderingProgram, "offset");
     gl.glProgramUniform1f(renderingProgram, offsetLoc, offset); // send value in "x" to "offset"
 
@@ -140,6 +142,8 @@ public class Code extends JFrame implements GLEventListener, KeyListener {
     int angleLoc = gl.glGetUniformLocation(renderingProgram, "angle");
     gl.glProgramUniform1f(renderingProgram, angleLoc, angle);
 
+    int directionLoc = gl.glGetUniformLocation(renderingProgram, "direction");
+    gl.glProgramUniform1i(renderingProgram, directionLoc, currentDirectionForShader);
     int colorLoc = gl.glGetUniformLocation(renderingProgram, "invariantColor");
     gl.glProgramUniform4f(renderingProgram, colorLoc, invariantcolor[0], invariantcolor[1], invariantcolor[2], invariantcolor[3]);
 
@@ -164,23 +168,26 @@ public class Code extends JFrame implements GLEventListener, KeyListener {
   private int createShaderProgram() {
     GL4 gl = (GL4) GLContext.getCurrentGL();
 
-    String[] vshaderSource = readShader("C:\\Users\\timef\\Documents\\Workspaces\\csc155-assignment-1\\shaders\\vertex.glsl");
-    String[] fshaderSource = readShader("C:\\Users\\timef\\Documents\\Workspaces\\csc155-assignment-1\\shaders\\fragment.glsl");
+    String[] vshaderSource = readShader("C:\\Users\\User\\155-assignment-1\\shaders\\vertex.glsl");
+    String[] fshaderSource = readShader("C:\\Users\\User\\155-assignment-1\\shaders\\fragment.glsl");
     if (vshaderSource[0].equals("INVALID") || fshaderSource[0].equals("INVALID")){
       System.exit(-1);
     }
     int vShader = gl.glCreateShader(GL_VERTEX_SHADER);
     gl.glShaderSource(vShader, vshaderSource.length, vshaderSource, null, 0); // 3 is the count of lines of source code.
     gl.glCompileShader(vShader);
+    printShaderLog(gl, vShader);
 
     int fShader = gl.glCreateShader(GL_FRAGMENT_SHADER);
     gl.glShaderSource(fShader, fshaderSource.length, fshaderSource, null, 0); // 4 is the count of lines of source
                                                                               // codegl.glCompileShader(fshader);
     gl.glCompileShader(fShader);
+    printShaderLog(gl, fShader);
     int vfProgram = gl.glCreateProgram();
     gl.glAttachShader(vfProgram, vShader);
     gl.glAttachShader(vfProgram, fShader);
     gl.glLinkProgram(vfProgram);
+    printProgramLog(gl, vfProgram);
 
     gl.glDeleteShader(vShader);
     gl.glDeleteShader(fShader);
@@ -188,6 +195,8 @@ public class Code extends JFrame implements GLEventListener, KeyListener {
   }
 
   public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
+  GL4 gl = (GL4) GLContext.getCurrentGL();
+  gl.glViewport(0,0, width, height);
   }
 
   public void dispose(GLAutoDrawable drawable) {
@@ -206,7 +215,7 @@ public class Code extends JFrame implements GLEventListener, KeyListener {
       List<String> lines = Files.readAllLines(filepath);
       String[] out = new String[lines.size()];
       for (int iter = 0; iter < out.length; iter++) {
-        out[iter] = lines.get(iter);
+        out[iter] = lines.get(iter) + "\n";
       }
       return out;
     } catch (SecurityException e) {
@@ -223,4 +232,28 @@ public class Code extends JFrame implements GLEventListener, KeyListener {
     }
 
   }
+  private static void printShaderLog(GL4 gl, int shader) {
+    int[] compiled = new int[1];
+    gl.glGetShaderiv(shader, GL_COMPILE_STATUS, compiled, 0);
+    if (compiled[0] == GL_FALSE) {
+      int[] len = new int[1];
+      gl.glGetShaderiv(shader, GL_INFO_LOG_LENGTH, len, 0);
+      byte[] log = new byte[len[0]];
+      gl.glGetShaderInfoLog(shader, log.length, null, 0, log, 0);
+      System.err.println(new String(log));
+    }
+  }
+
+  private static void printProgramLog(GL4 gl, int program) {
+    int[] linked = new int[1];
+    gl.glGetProgramiv(program, GL_LINK_STATUS, linked, 0);
+    if (linked[0] == GL_FALSE) {
+      int[] len = new int[1];
+      gl.glGetProgramiv(program, GL_INFO_LOG_LENGTH, len, 0);
+      byte[] log = new byte[len[0]];
+      gl.glGetProgramInfoLog(program, log.length, null, 0, log, 0);
+      System.err.println(new String(log));
+    }
+  }
+
 }
